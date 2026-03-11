@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: omnisense-api
+  labels:
+    app: omnisense-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: omnisense-api
+  template:
+    metadata:
+      labels:
+        app: omnisense-api
+    spec:
+      containers:
+      - name: omnisense-api
+        image: youracr.azurecr.io/omnisense-api:v1.0 # Update with your ACR path
+        ports:
+        - containerPort: 8080
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: connection-string
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: REDIS_URL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: omnisense-api-svc
+spec:
+  type: ClusterIP # Internal only; SWA handles the public entry
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app: omnisense-api
