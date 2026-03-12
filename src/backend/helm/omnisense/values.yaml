@@ -78,7 +78,7 @@ ingress:
         - path: /
           pathType: ImplementationSpecific
   tls:
-    - secretName: omnisense-77security-tls
+    - secretName: omnisense-api-77security-tls
       hosts:
         - api.omnisense.77security.com
 
