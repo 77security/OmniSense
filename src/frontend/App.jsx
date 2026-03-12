@@ -1,228 +1,240 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Shield, 
-  Activity, 
-  Globe, 
-  Lock, 
-  AlertTriangle, 
+  Search, 
   User, 
-  ChevronRight, 
-  Terminal,
+  Lock, 
+  Info, 
+  Globe, 
+  Zap, 
+  Code, 
   ExternalLink,
+  ChevronRight,
   Loader2,
-  Zap
+  Github,
+  X
 } from 'lucide-react';
 
-// Configuration
 const IDENTITY_API = "https://identity.77security.com/api/user/me";
-const OMNISENSE_API = "https://api.omnisense.77security.com/api/";
 
-const App = () => {
+export default function App() {
   const [session, setSession] = useState(null);
-  const [telemetry, setTelemetry] = useState(null);
+  const [query, setQuery] = useState("");
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
+  // Check session on load
   useEffect(() => {
-    const fetchData = async () => {
+    async function checkSession() {
       try {
-        // 1. Fetch Identity Session
-        const identityRes = await fetch(IDENTITY_API, { credentials: 'include' });
-        if (!identityRes.ok) {
-          throw new Error("UNAUTHORIZED: No valid session found at .77security.com");
+        const res = await fetch(IDENTITY_API, { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          setSession(data);
         }
-        const sessionData = await identityRes.json();
-        setSession(sessionData);
       } catch (err) {
-        console.error("Initialization failed:", err);
-        setError(err.message);
-        // Redirect to login after a short delay if unauthorized
-        if (err.message.includes("UNAUTHORIZED")) {
-          setTimeout(() => {
-            window.location.href = "https://www.77security.com/login";
-          }, 3000);
-        }
+        console.warn("Session check failed, proceeding as guest.");
       } finally {
         setLoading(false);
       }
-    };
-
-    fetchData();
+    }
+    checkSession();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center space-y-4">
-        <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
-        <p className="text-emerald-500/60 font-mono text-sm tracking-widest uppercase">Initializing OmniSense Security Context...</p>
-      </div>
-    );
-  }
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (!query.trim()) return;
 
-  if (error && error.includes("UNAUTHORIZED")) {
-    return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-red-950/10 border border-red-500/20 p-8 rounded-2xl text-center">
-          <Lock className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-white mb-2">Access Denied</h2>
-          <p className="text-red-400/80 mb-6 text-sm">Valid session not found. Redirecting to 77 Security login portal...</p>
-          <div className="w-full bg-white/5 h-1 rounded-full overflow-hidden">
-            <div className="bg-red-500 h-full animate-[progress_3s_ease-in-out]" style={{width: '100%'}}></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-[#050505] text-slate-300 font-sans selection:bg-emerald-500/30">
-      {/* Sidebar Navigation */}
-      <aside className="fixed left-0 top-0 h-full w-20 border-r border-white/5 bg-[#080808] flex flex-col items-center py-8 gap-8">
-        <div className="p-3 bg-emerald-500/10 rounded-xl">
-          <Shield className="w-8 h-8 text-emerald-500" />
-        </div>
-        <nav className="flex flex-col gap-6">
-          <div className="p-3 bg-white/5 rounded-xl cursor-pointer hover:bg-white/10 transition-colors">
-            <Globe className="w-6 h-6 text-slate-400" />
-          </div>
-          <div className="p-3 bg-white/5 rounded-xl cursor-pointer hover:bg-white/10 transition-colors">
-            <Activity className="w-6 h-6 text-slate-400" />
-          </div>
-          <div className="p-3 bg-white/5 rounded-xl cursor-pointer hover:bg-white/10 transition-colors">
-            <Terminal className="w-6 h-6 text-slate-400" />
-          </div>
-        </nav>
-      </aside>
-
-      {/* Main Content */}
-      <main className="pl-20">
-        {/* Header */}
-        <header className="h-20 border-b border-white/5 flex items-center justify-between px-8 bg-[#050505]/80 backdrop-blur-md sticky top-0 z-10">
-          <div className="flex items-center gap-4">
-            <h1 className="text-white font-bold tracking-tighter text-xl">OMNISENSE <span className="text-emerald-500 font-mono text-sm ml-2">v1.0.4</span></h1>
-          </div>
-
-          <div className="flex items-center gap-6">
-            <div className="hidden md:flex flex-col items-end">
-              <span className="text-white text-sm font-medium">{session?.email || "Guest Operator"}</span>
-              <span className="text-[10px] text-emerald-500 font-mono tracking-tighter uppercase">{session?.industry_name || "Public Sector"} Agent</span>
-            </div>
-            <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
-              <User className="w-5 h-5 text-emerald-500" />
-            </div>
-          </div>
-        </header>
-
-        {/* Dashboard Grid */}
-        <div className="p-8 max-w-7xl mx-auto space-y-8">
-          
-          {/* Status Bar */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <StatusCard 
-              icon={<Zap className="w-5 h-5" />} 
-              label="System Integrity" 
-              value="Optimized" 
-              color="emerald" 
-            />
-            <StatusCard 
-              icon={<Activity className="w-5 h-5" />} 
-              label="Active Nodes" 
-              value={telemetry?.active_nodes || "2,481"} 
-              color="blue" 
-            />
-            <StatusCard 
-              icon={<AlertTriangle className="w-5 h-5" />} 
-              label="Global Threat Level" 
-              value={telemetry?.threat_level || "ELEVATED"} 
-              color="orange" 
-            />
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Main Telemetry Feed */}
-            <section className="lg:col-span-2 bg-[#0a0a0a] border border-white/5 rounded-3xl overflow-hidden">
-              <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-                <h3 className="text-white font-semibold flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-emerald-500" />
-                  Real-time Threat Stream
-                </h3>
-                <span className="text-[10px] bg-emerald-500/10 text-emerald-500 px-2 py-1 rounded uppercase tracking-widest font-bold">Live</span>
-              </div>
-              <div className="p-6 space-y-4">
-                {telemetry?.recent_events?.map((event, i) => (
-                  <div key={i} className="flex items-start gap-4 p-4 rounded-xl bg-white/[0.03] border border-white/5 hover:border-emerald-500/30 transition-all group">
-                    <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
-                      <Zap className="w-4 h-4" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex justify-between items-start">
-                        <p className="text-white font-medium capitalize">{event.type.replace('_', ' ')} Detected</p>
-                        <span className="text-[10px] font-mono text-slate-500 italic">2m ago</span>
-                      </div>
-                      <p className="text-xs text-slate-400 mt-1">Origin: <span className="text-emerald-500/80 font-mono">{event.source}</span></p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-emerald-500 transition-colors self-center" />
-                  </div>
-                )) || (
-                  <p className="text-center py-20 text-slate-500 text-sm italic">Waiting for telemetry ingress from AKS...</p>
-                )}
-              </div>
-            </section>
-
-            {/* Sidebar Stats */}
-            <div className="space-y-8">
-              <section className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-3xl p-6 text-white relative overflow-hidden group">
-                <Shield className="absolute -right-4 -bottom-4 w-32 h-32 opacity-20 group-hover:scale-110 transition-transform duration-700" />
-                <h3 className="text-lg font-bold mb-2">Zero-Trust Active</h3>
-                <p className="text-sm opacity-80 mb-6">Your session is protected by 77 Security identity standards.</p>
-                <button className="w-full bg-black/20 hover:bg-black/40 backdrop-blur-md py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 border border-white/10">
-                  Security Audit <ExternalLink className="w-3 h-3" />
-                </button>
-              </section>
-
-              <section className="bg-[#0a0a0a] border border-white/5 rounded-3xl p-6">
-                <h3 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider text-slate-500">Node Configuration</h3>
-                <div className="space-y-4">
-                  <div className="flex justify-between text-xs py-2 border-b border-white/5">
-                    <span className="text-slate-500 uppercase tracking-tighter">Backend Root</span>
-                    <span className="text-emerald-500 font-mono">api.omnisense.77security.com</span>
-                  </div>
-                  <div className="flex justify-between text-xs py-2 border-b border-white/5">
-                    <span className="text-slate-500 uppercase tracking-tighter">Cluster Node</span>
-                    <span className="text-slate-300 font-mono">aks-prod-021</span>
-                  </div>
-                  <div className="flex justify-between text-xs py-2 border-b border-white/5">
-                    <span className="text-slate-500 uppercase tracking-tighter">Identity Scope</span>
-                    <span className="text-slate-300 font-mono">{session?.id?.substring(0,8)}...</span>
-                  </div>
-                </div>
-              </section>
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
-  );
-};
-
-const StatusCard = ({ icon, label, value, color }) => {
-  const colors = {
-    emerald: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
-    blue: "text-blue-500 bg-blue-500/10 border-blue-500/20",
-    orange: "text-orange-500 bg-orange-500/10 border-orange-500/20",
+    if (!session) {
+      setShowLoginModal(true);
+    } else {
+      // Logic for authenticated search would go here (redirect to results)
+      window.location.href = `/search?q=${encodeURIComponent(query)}`;
+    }
   };
-  
-  return (
-    <div className="bg-[#0a0a0a] border border-white/5 p-6 rounded-3xl flex items-center gap-5 hover:border-white/10 transition-colors group">
-      <div className={`p-4 rounded-2xl ${colors[color]} group-hover:scale-110 transition-transform`}>
-        {icon}
-      </div>
-      <div>
-        <p className="text-xs text-slate-500 uppercase tracking-widest font-bold mb-1">{label}</p>
-        <p className="text-xl text-white font-bold tracking-tight">{value}</p>
-      </div>
+
+  if (loading) return (
+    <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+      <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
     </div>
   );
-};
 
-export default App;
+  return (
+    <div className="min-h-screen bg-[#050505] text-slate-300 font-sans selection:bg-emerald-500/30 overflow-x-hidden">
+      
+      {/* Navbar */}
+      <nav className="fixed top-0 w-full h-16 border-b border-white/5 bg-[#050505]/80 backdrop-blur-md z-40 flex items-center justify-between px-8">
+        <div className="flex items-center gap-2">
+          <Shield className="w-6 h-6 text-emerald-500" />
+          <span className="text-white font-bold tracking-tighter text-lg uppercase">OmniSense</span>
+        </div>
+        <div className="flex items-center gap-6 text-sm">
+          <a href="#philosophy" className="hover:text-emerald-500 transition-colors">Philosophy</a>
+          <a href="https://github.com/77security" target="_blank" rel="noreferrer" className="hover:text-emerald-500 transition-colors flex items-center gap-1">
+            <Github className="w-4 h-4" /> Open Source
+          </a>
+          {session ? (
+            <div className="flex items-center gap-3 pl-4 border-l border-white/10">
+              <span className="text-white font-medium hidden sm:block">{session.email}</span>
+              <div className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
+                <User className="w-4 h-4 text-emerald-500" />
+              </div>
+            </div>
+          ) : (
+            <button 
+              onClick={() => window.location.href = "https://www.77security.com/login"}
+              className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-1.5 px-4 rounded-lg transition-all text-xs"
+            >
+              Sign In
+            </button>
+          )}
+        </div>
+      </nav>
+
+      {/* Hero Section (VT Style) */}
+      <section className="relative pt-44 pb-24 px-6 flex flex-col items-center">
+        {/* Subtle Background Glow */}
+        <div className="absolute top-44 left-1/2 -translate-x-1/2 w-96 h-96 bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none" />
+        
+        <div className="flex flex-col items-center mb-12 text-center max-w-2xl">
+          <Shield className="w-20 h-20 text-emerald-500 mb-6 drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]" />
+          <h1 className="text-6xl font-black text-white tracking-tighter mb-4 uppercase">OmniSense</h1>
+          <p className="text-slate-400 text-lg leading-relaxed">
+            Universal threat intelligence powered by transparency and decentralized analysis.
+          </p>
+        </div>
+
+        {/* Search Bar */}
+        <form onSubmit={handleSearch} className="w-full max-w-3xl relative group">
+          <div className="absolute inset-0 bg-emerald-500/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+          <div className="relative bg-[#0d0d0d] border border-white/10 hover:border-emerald-500/40 rounded-2xl p-2 flex items-center gap-2 transition-all shadow-2xl">
+            <div className="pl-4">
+              <Search className="w-5 h-5 text-slate-500" />
+            </div>
+            <input 
+              type="text" 
+              placeholder="URL, IP address, domain, or file hash"
+              className="flex-1 bg-transparent border-none outline-none text-white p-4 font-mono text-sm tracking-wide placeholder:text-slate-600"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <button 
+              type="submit"
+              className="bg-emerald-500 hover:bg-emerald-400 text-black font-black px-8 py-4 rounded-xl transition-all uppercase tracking-widest text-xs flex items-center gap-2"
+            >
+              Scan <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </form>
+
+        <div className="mt-8 flex gap-8 text-[10px] uppercase tracking-widest font-bold text-slate-500">
+          <span className="flex items-center gap-2"><Globe className="w-3 h-3" /> 2.4B Records</span>
+          <span className="flex items-center gap-2"><Zap className="w-3 h-3" /> Real-time Feed</span>
+          <span className="flex items-center gap-2"><Code className="w-3 h-3" /> Open API</span>
+        </div>
+      </section>
+
+      {/* Philosophy Section */}
+      <section id="philosophy" className="max-w-6xl mx-auto py-24 px-6 border-t border-white/5">
+        <div className="grid md:grid-cols-2 gap-16 items-center">
+          <div>
+            <h2 className="text-xs font-bold text-emerald-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+              <div className="w-8 h-px bg-emerald-500" /> Our Creed
+            </h2>
+            <h3 className="text-4xl font-bold text-white tracking-tight mb-6">
+              Security is a Human Right, <br />
+              Not a Proprietary Secret.
+            </h3>
+            <p className="text-slate-400 leading-relaxed mb-8">
+              OmniSense is built on the <strong>77 Security Protocol</strong>. We believe that for threat intelligence to be truly effective, the methodology must be open-source, the data exchange must be fair, and privacy must be absolute through zero-knowledge encryption.
+            </p>
+            <ul className="space-y-4">
+              <li className="flex gap-3">
+                <div className="mt-1"><Zap className="w-4 h-4 text-emerald-500" /></div>
+                <p className="text-sm"><span className="text-white font-bold">Fair Exchange:</span> Contribute your telemetry to earn high-tier analysis credits. One for one.</p>
+              </li>
+              <li className="flex gap-3">
+                <div className="mt-1"><Code className="w-4 h-4 text-emerald-500" /></div>
+                <p className="text-sm"><span className="text-white font-bold">Open Source:</span> Every scanner, every scraper, and every proxy is open to public audit.</p>
+              </li>
+              <li className="flex gap-3">
+                <div className="mt-1"><Lock className="w-4 h-4 text-emerald-500" /></div>
+                <p className="text-sm"><span className="text-white font-bold">Zero Knowledge:</span> We store your API keys and private signatures, but we never see them.</p>
+              </li>
+            </ul>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="aspect-square bg-gradient-to-br from-white/5 to-transparent border border-white/5 rounded-3xl p-8 flex flex-col justify-end group hover:border-emerald-500/20 transition-colors">
+              <Globe className="w-8 h-8 text-emerald-500 mb-4" />
+              <h4 className="text-white font-bold">Decentralized</h4>
+            </div>
+            <div className="aspect-square bg-gradient-to-br from-white/5 to-transparent border border-white/5 rounded-3xl p-8 flex flex-col justify-end group hover:border-emerald-500/20 transition-colors translate-y-8">
+              <Shield className="w-8 h-8 text-emerald-500 mb-4" />
+              <h4 className="text-white font-bold">Verified</h4>
+            </div>
+            <div className="aspect-square bg-gradient-to-br from-white/5 to-transparent border border-white/5 rounded-3xl p-8 flex flex-col justify-end group hover:border-emerald-500/20 transition-colors -translate-y-8">
+              <Search className="w-8 h-8 text-emerald-500 mb-4" />
+              <h4 className="text-white font-bold">Transparent</h4>
+            </div>
+            <div className="aspect-square bg-gradient-to-br from-white/5 to-transparent border border-white/5 rounded-3xl p-8 flex flex-col justify-end group hover:border-emerald-500/20 transition-colors">
+              <Lock className="w-8 h-8 text-emerald-500 mb-4" />
+              <h4 className="text-white font-bold">Sovereign</h4>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="py-12 border-t border-white/5 px-8 text-center">
+        <div className="flex justify-center gap-6 mb-8">
+          <a href="#" className="text-slate-500 hover:text-white transition-colors"><Github className="w-5 h-5" /></a>
+          <a href="#" className="text-slate-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-tighter">Documentation</a>
+          <a href="#" className="text-slate-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-tighter">API Status</a>
+        </div>
+        <p className="text-[10px] text-slate-600 uppercase tracking-[0.2em]">© 2026 77 Security. All rights reserved.</p>
+      </footer>
+
+      {/* Login Gate Modal */}
+      {showLoginModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowLoginModal(false)} />
+          <div className="relative bg-[#0d0d0d] border border-white/10 w-full max-w-md p-8 rounded-3xl shadow-2xl">
+            <button 
+              onClick={() => setShowLoginModal(false)}
+              className="absolute top-4 right-4 text-slate-500 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="text-center">
+              <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-emerald-500/20">
+                <Lock className="w-8 h-8 text-emerald-500" />
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-2">Authentication Required</h3>
+              <p className="text-slate-400 text-sm mb-8 leading-relaxed">
+                To prevent automated scraping and maintain fair exchange limits, scanning requires a valid 77 Security ID.
+              </p>
+              <div className="space-y-3">
+                <button 
+                  onClick={() => window.location.href = "https://www.77security.com/login"}
+                  className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black py-4 rounded-xl transition-all"
+                >
+                  Sign In with 77 ID
+                </button>
+                <button 
+                  onClick={() => window.location.href = "https://www.77security.com/signup"}
+                  className="w-full bg-white/5 hover:bg-white/10 text-white font-bold py-4 rounded-xl transition-all border border-white/5"
+                >
+                  Create New ID
+                </button>
+              </div>
+              <p className="mt-6 text-[10px] text-slate-600 uppercase tracking-widest font-bold">
+                Identity provided by identity.77security.com
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
