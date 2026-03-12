@@ -38,11 +38,7 @@ jobs:
           resource-group: ${{ env.RESOURCE_GROUP }}
           cluster-name: ${{ env.CLUSTER_NAME }}
 
-      - name: Deploy to AKS
-        uses: Azure/k8s-deploy@v4
-        with:
-          manifests: |
-            k8s/omnisense-manifest.yaml
-          images: |
-            ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          action: deploy
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install identity ./src/backend/helm/omnisense \
+            --set image.tag=${{ github.sha }}
