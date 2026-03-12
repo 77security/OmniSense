@@ -11,10 +11,10 @@ COPY package*.json ./
 RUN npm ci --only=production
 
 # Copy app source
-COPY server.js .
+COPY . .
 
 # Expose the port SWA will talk to
 EXPOSE 8080
 
 # Run the application
-CMD [ "node", "server.js" ]
+CMD [ "node", "src/server.js" ]
