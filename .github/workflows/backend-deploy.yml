@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - 'src/backend/**'
-      - 'k8s/**'
 
 env:
   ACR_NAME: 77security
