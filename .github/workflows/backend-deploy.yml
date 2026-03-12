@@ -9,7 +9,7 @@ on:
 
 env:
   ACR_NAME: 77security
-  IMAGE_NAME: omnisense-api
+  IMAGE_NAME: omnisense
   CLUSTER_NAME: 77security
   RESOURCE_GROUP: Resourcegroup
 
