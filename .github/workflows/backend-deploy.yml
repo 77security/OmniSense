@@ -40,5 +40,5 @@ jobs:
 
       - name: Deploy with Helm
         run: |
-          helm upgrade --install identity ./src/backend/helm/omnisense \
+          helm upgrade --install omnisense ./src/backend/helm/omnisense \
             --set image.tag=${{ github.sha }}
