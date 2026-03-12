@@ -15,7 +15,7 @@ import {
 
 // Configuration
 const IDENTITY_API = "https://identity.77security.com/api/user/me";
-const OMNISENSE_API = "https://api.omnisense.77security.com/api/v1/telemetry";
+const OMNISENSE_API = "https://api.omnisense.77security.com/api/";
 
 const App = () => {
   const [session, setSession] = useState(null);
@@ -33,13 +33,6 @@ const App = () => {
         }
         const sessionData = await identityRes.json();
         setSession(sessionData);
-
-        // 2. Fetch OmniSense Product Data
-        const telemetryRes = await fetch(OMNISENSE_API, { credentials: 'include' });
-        if (telemetryRes.ok) {
-          const data = await telemetryRes.json();
-          setTelemetry(data);
-        }
       } catch (err) {
         console.error("Initialization failed:", err);
         setError(err.message);
