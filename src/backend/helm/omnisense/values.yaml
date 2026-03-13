@@ -62,6 +62,8 @@ env:
   databaseUrlSecretKey: connection-string
   smtpSecretName: smtp-secrets
   smtpSecretKey: smtp-pass
+  urlhausSecretName: urlhaus-secrets
+  urlhausSecretKey: urlhaus-url
 
 # This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
 ingress:
