@@ -189,48 +189,69 @@ async function upsertUrl(record) {
 
 
 async function updateURLhaus() {
+  console.log("Starting URLhaus sync...");
 
-  console.log("Starting URLhaus sync...")
+  const response = await axios.get(URLHAUS_FEED);
+  
+  // DEBUG: Check if response.data is actually a string and its length
+  console.log(`Data Type: ${typeof response.data} | Length: ${response.data?.length}`);
+  console.log("First 200 chars of feed:\n", response.data.substring(0, 200));
 
-  const response = await axios.get(URLHAUS_FEED)
-  console.log(response.data.substring(0, 200)) // Log the beginning of the feed for verification
-
-  const stream = Readable.from(response.data)
-
-  let count = 0
+  const stream = Readable.from(response.data);
+  let count = 0;
+  let errorCount = 0;
 
   await new Promise((resolve, reject) => {
-
-    stream
-      .pipe(csv({
-        skipLines: 8
-      }))
-      .on("data", async (row) => {
-
-        try {
-
-          await upsertUrl({
-            url: row.url,
-            threat: row.threat,
-            tags: row.tags
-          })
-
-          count++
-
-          if (count % 100 === 0)
-            console.log(`Processed ${count}`)
-
-        } catch (err) {
-          console.error("Failed row:", err)
-        }
-
+    const parser = stream.pipe(
+      csv({
+        skipLines: 8, // Standard for URLhaus, but let's verify
       })
-      .on("end", resolve)
-      .on("error", reject)
+    );
 
-  })
+    // DEBUG: Log the headers the parser actually found
+    parser.on("headers", (headers) => {
+      console.log("Detected CSV Headers:", headers);
+    });
 
-  console.log(`URLhaus sync completed. Total: ${count}`)
+    parser.on("data", async (row) => {
+      // DEBUG: Log the first row to see if keys (row.url) exist
+      if (count === 0) {
+        console.log("First row object structure:", JSON.stringify(row, null, 2));
+      }
+
+      try {
+        // NOTE: The 'data' event doesn't natively wait for this 'await'.
+        // If the sync is huge, this can cause memory issues, but for now, we log:
+        await upsertUrl({
+          url: row.url,
+          threat: row.threat,
+          tags: row.tags
+        });
+
+        count++;
+
+        if (count % 100 === 0) console.log(`Processed ${count}`);
+      } catch (err) {
+        errorCount++;
+        if (errorCount < 5) console.error("Row processing error:", err.message);
+      }
+    });
+
+    parser.on("end", () => {
+      console.log("Stream ended reached.");
+      resolve();
+    });
+
+    parser.on("error", (err) => {
+      console.error("Stream Error:", err);
+      reject(err);
+    });
+  });
+
+  console.log(`\n--- Sync Summary ---`);
+  console.log(`Total Processed: ${count}`);
+  console.log(`Total Errors: ${errorCount}`);
+  console.log(`--------------------\n`);
 }
 
 module.exports = { updateURLhaus }
