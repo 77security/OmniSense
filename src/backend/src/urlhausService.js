@@ -193,6 +193,7 @@ async function updateURLhaus() {
   console.log("Starting URLhaus sync...")
 
   const response = await axios.get(URLHAUS_FEED)
+  console.log(response.data.substring(0, 200)) // Log the beginning of the feed for verification
 
   const stream = Readable.from(response.data)
 
