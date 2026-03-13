@@ -167,3 +167,6 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+cronjob:
+  schedule: "*/5 * * * *"
