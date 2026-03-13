@@ -2,6 +2,7 @@ async function update() {
   console.log("Starting TI database update...");
   try {
     updateURLhaus = require("./urlhausService").updateURLhaus
+    await updateURLhaus()
     console.log("update completed successfully.");
     process.exit(0); // Success
   } catch (err) {
