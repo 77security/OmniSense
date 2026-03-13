@@ -12,6 +12,9 @@ const pool = new Pool({
   database: 'omnisense',
   ssl: { rejectUnauthorized: false }
 });
+pool.on('connect', (client) => {
+  console.log(`Connected to database: ${client.database}`);
+});
 
 async function upsertUrl(record) {
   console.log("upsertUrl: ", record.url.substring(0, 200));
