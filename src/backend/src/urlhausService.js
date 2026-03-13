@@ -211,7 +211,7 @@ async function updateURLhaus() {
     for await (const row of parser) {
       // 1. Log the first row to verify keys match your DB schema
       if (count === 0) {
-        console.log("First row detected:", JSON.stringify(row, null, 2));
+        // console.log("First row detected:", JSON.stringify(row, null, 2));
       }
 
       // 2. Critical Check: Does 'row.url' actually exist? 
@@ -232,9 +232,9 @@ async function updateURLhaus() {
         count++;
         if (count % 100 === 0) console.log(`Processed ${count}`);
       } catch (err) {
-        console.error(`   URL: ${row.url}`);
-        console.error(`   Error Message: ${err.message}`);
-        if (err.code) console.error(`   Error Code: ${err.code}`);
+        // console.error(`   URL: ${row.url}`);
+        // console.error(`   Error Message: ${err.message}`);
+        // if (err.code) console.error(`   Error Code: ${err.code}`);
         errorCount++;
         if (errorCount < 5) console.error(`Row ${count} error:`, err.message);
       }
