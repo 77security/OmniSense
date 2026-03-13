@@ -14,4 +14,15 @@ spec:
               image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
               imagePullPolicy: IfNotPresent
               command: ["node", "src/worker.js"]
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.env.databaseUrlSecretName }}
+                      key: {{ .Values.env.databaseUrlSecretKey }}
+                - name: URLHAUS_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.env.urlhausSecretName }}
+                      key: {{ .Values.env.urlhausSecretKey }}
           restartPolicy: OnFailure

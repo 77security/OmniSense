@@ -50,16 +50,6 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.env.databaseUrlSecretName }}
                   key: {{ .Values.env.databaseUrlSecretKey }}
-            - name: SMTP_PASS
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.env.smtpSecretName }}
-                  key: {{ .Values.env.smtpSecretKey }}
-            - name: URLHAUS_URL
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.env.urlhausSecretName }}
-                  key: {{ .Values.env.urlhausSecretKey }}
           {{- with .Values.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}
