@@ -59,8 +59,6 @@ CREATE TABLE ti_ips (
 CREATE TABLE ti_urls (
     id UUID PRIMARY KEY REFERENCES ti_base(id) ON DELETE CASCADE,
     url_full TEXT UNIQUE,
-    url_host TEXT,
-    url_path TEXT,
     final_redirect_url TEXT
 );
 
