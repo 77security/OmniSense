@@ -15,11 +15,11 @@ spec:
               imagePullPolicy: IfNotPresent
               command: ["node", "src/worker.js"]
               env:
-                - name: DATABASE_URL
+                - name: DATABASE_PASS
                   valueFrom:
                     secretKeyRef:
-                      name: {{ .Values.env.databaseUrlSecretName }}
-                      key: {{ .Values.env.databaseUrlSecretKey }}
+                      name: {{ .Values.env.databaseSecretName }}
+                      key: {{ .Values.env.databaseSecretKey }}
                 - name: URLHAUS_URL
                   valueFrom:
                     secretKeyRef:

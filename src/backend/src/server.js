@@ -1,5 +1,4 @@
 const express = require('express');
-const { Pool } = require('pg');
 
 // --- LOGGING SETUP ---
 const logger = require('pino')({
@@ -20,15 +19,6 @@ const app = express();
 // Use the logger middleware early to track all requests
 app.use(pinoHttp);
 app.use(express.json());
-
-// Database connection
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
-
-// Monitor pool errors
-pool.on('error', (err) => logger.error({ err }, 'Unexpected error on idle database client'));
 
 // Health Probes (Keep these quiet unless they fail)
 app.get('/health', (req, res) => res.status(200).send('OK'));

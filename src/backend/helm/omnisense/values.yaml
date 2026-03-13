@@ -58,8 +58,8 @@ service:
   targetPort: 8080
 
 env:
-  databaseUrlSecretName: db-secrets
-  databaseUrlSecretKey: connection-string
+  databaseSecretName: db-secrets
+  databaseSecretKey: database-pass
   smtpSecretName: smtp-secrets
   smtpSecretKey: smtp-pass
   urlhausSecretName: urlhaus-secrets

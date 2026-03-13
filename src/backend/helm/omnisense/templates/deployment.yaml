@@ -45,11 +45,11 @@ spec:
               containerPort: {{ .Values.service.targetPort }}
               protocol: TCP
           env:
-            - name: DATABASE_URL
+            - name: DATABASE_PASS
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.env.databaseUrlSecretName }}
-                  key: {{ .Values.env.databaseUrlSecretKey }}
+                  name: {{ .Values.env.databaseSecretName }}
+                  key: {{ .Values.env.databaseSecretKey }}
           {{- with .Values.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}

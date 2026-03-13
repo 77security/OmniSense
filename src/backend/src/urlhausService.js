@@ -8,12 +8,12 @@ const URLHAUS_FEED = process.env.URLHAUS_URL
 
 const { Pool } = require('pg');
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  host: '77security.postgres.database.azure.com',
+  user: 'postgresql',
+  password: process.env.DATABASE_PASS,
   database: 'omnisense',
+  port: 5432,
   ssl: { rejectUnauthorized: false }
-});
-pool.on('connect', (client) => {
-  console.log(`Connected to database: ${client.database}`);
 });
 
 async function upsertUrl(record) {
