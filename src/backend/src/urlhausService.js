@@ -13,6 +13,7 @@ const pool = new Pool({
 });
 
 async function upsertUrl(record) {
+  console.log("upsertUrl: ", record.url.substring(0, 200));
 
   const client = await pool.connect()
 
@@ -187,41 +188,37 @@ async function upsertUrl(record) {
   }
 }
 
-
 async function updateURLhaus() {
   console.log("Starting URLhaus sync...");
 
-  const response = await axios.get(URLHAUS_FEED);
-  
-  // DEBUG: Check if response.data is actually a string and its length
-  console.log(`Data Type: ${typeof response.data} | Length: ${response.data?.length}`);
-  console.log("First 200 chars of feed:\n", response.data.substring(0, 200));
+  try {
+    const response = await axios.get(URLHAUS_FEED);
+    
+    // Create the stream from the response string
+    const stream = Readable.from(response.data);
+    const parser = stream.pipe(csv({ skipLines: 8 }));
 
-  const stream = Readable.from(response.data);
-  let count = 0;
-  let errorCount = 0;
+    let count = 0;
+    let errorCount = 0;
 
-  await new Promise((resolve, reject) => {
-    const parser = stream.pipe(
-      csv({
-        skipLines: 8, // Standard for URLhaus, but let's verify
-      })
-    );
+    console.log("Stream initialized. Starting processing...");
 
-    // DEBUG: Log the headers the parser actually found
-    parser.on("headers", (headers) => {
-      console.log("Detected CSV Headers:", headers);
-    });
-
-    parser.on("data", async (row) => {
-      // DEBUG: Log the first row to see if keys (row.url) exist
+    // The magic: This loop waits for each 'await' before moving to the next row
+    for await (const row of parser) {
+      // 1. Log the first row to verify keys match your DB schema
       if (count === 0) {
-        console.log("First row object structure:", JSON.stringify(row, null, 2));
+        console.log("First row detected:", JSON.stringify(row, null, 2));
+      }
+
+      // 2. Critical Check: Does 'row.url' actually exist? 
+      // Sometimes CSV headers have hidden spaces or different casing.
+      if (!row.url) {
+        errorCount++;
+        if (errorCount === 1) console.error("Missing 'url' key in row. Check headers!");
+        continue;
       }
 
       try {
-        // NOTE: The 'data' event doesn't natively wait for this 'await'.
-        // If the sync is huge, this can cause memory issues, but for now, we log:
         await upsertUrl({
           url: row.url,
           threat: row.threat,
@@ -229,29 +226,21 @@ async function updateURLhaus() {
         });
 
         count++;
-
         if (count % 100 === 0) console.log(`Processed ${count}`);
       } catch (err) {
         errorCount++;
-        if (errorCount < 5) console.error("Row processing error:", err.message);
+        if (errorCount < 5) console.error(`Row ${count} error:`, err.message);
       }
-    });
+    }
 
-    parser.on("end", () => {
-      console.log("Stream ended reached.");
-      resolve();
-    });
+    console.log(`\n--- Sync Summary ---`);
+    console.log(`Total Successfully Saved: ${count}`);
+    console.log(`Total Errors/Skipped: ${errorCount}`);
+    console.log(`--------------------\n`);
 
-    parser.on("error", (err) => {
-      console.error("Stream Error:", err);
-      reject(err);
-    });
-  });
-
-  console.log(`\n--- Sync Summary ---`);
-  console.log(`Total Processed: ${count}`);
-  console.log(`Total Errors: ${errorCount}`);
-  console.log(`--------------------\n`);
+  } catch (err) {
+    console.error("Fatal Sync Error:", err.message);
+  }
 }
 
 module.exports = { updateURLhaus }
