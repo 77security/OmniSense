@@ -12,16 +12,22 @@ import {
   ChevronRight,
   Loader2,
   Github,
-  X
+  X,
+  AlertTriangle,
+  CheckCircle
 } from 'lucide-react';
 
 const IDENTITY_API = "https://identity.77security.com/api/user/me";
+const SEARCH_API = "https://api.omnisense.77security.com/api/ti/search";
 
 export default function App() {
   const [session, setSession] = useState(null);
   const [query, setQuery] = useState("");
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
+  const [searchResult, setSearchResult] = useState(null);
+  const [error, setError] = useState(null);
 
   // Check session on load
   useEffect(() => {
@@ -41,15 +47,32 @@ export default function App() {
     checkSession();
   }, []);
 
-  const handleSearch = (e) => {
+  const handleSearch = async (e) => {
     e.preventDefault();
     if (!query.trim()) return;
 
     if (!session) {
       setShowLoginModal(true);
-    } else {
-      // Logic for authenticated search would go here (redirect to results)
-      window.location.href = `/search?q=${encodeURIComponent(query)}`;
+      return;
+    }
+
+    setSearching(true);
+    setError(null);
+    setSearchResult(null);
+
+    try {
+      const response = await fetch(`${SEARCH_API}?q=${encodeURIComponent(query.trim())}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        setSearchResult(data);
+      } else {
+        setError(data.message || data.error || "Intelligence not found.");
+      }
+    } catch (err) {
+      setError("Unable to connect to intelligence API. Please try again later.");
+    } finally {
+      setSearching(false);
     }
   };
 
@@ -109,7 +132,7 @@ export default function App() {
           <div className="absolute inset-0 bg-emerald-500/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
           <div className="relative bg-[#0d0d0d] border border-white/10 hover:border-emerald-500/40 rounded-2xl p-2 flex items-center gap-2 transition-all shadow-2xl">
             <div className="pl-4">
-              <Search className="w-5 h-5 text-slate-500" />
+              {searching ? <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" /> : <Search className="w-5 h-5 text-slate-500" />}
             </div>
             <input 
               type="text" 
@@ -117,15 +140,64 @@ export default function App() {
               className="flex-1 bg-transparent border-none outline-none text-white p-4 font-mono text-sm tracking-wide placeholder:text-slate-600"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              disabled={searching}
             />
             <button 
               type="submit"
-              className="bg-emerald-500 hover:bg-emerald-400 text-black font-black px-8 py-4 rounded-xl transition-all uppercase tracking-widest text-xs flex items-center gap-2"
+              disabled={searching}
+              className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-black font-black px-8 py-4 rounded-xl transition-all uppercase tracking-widest text-xs flex items-center gap-2"
             >
-              Scan <ChevronRight className="w-4 h-4" />
+              {searching ? 'Scanning...' : 'Scan'} <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </form>
+
+        {/* Intelligence results feedback */}
+        {(error || searchResult) && (
+          <div className="mt-6 w-full max-w-3xl animate-in fade-in slide-in-from-top-4 duration-500">
+            {error ? (
+              <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl flex items-center gap-3 text-red-400 text-sm">
+                <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+                {error}
+              </div>
+            ) : (
+              <div className="bg-[#0d0d0d] border border-emerald-500/30 p-6 rounded-2xl shadow-xl">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded mb-2 inline-block">
+                      {searchResult.type} Found
+                    </span>
+                    <h4 className="text-white font-mono text-sm break-all">{query}</h4>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] uppercase text-slate-500 font-bold">Detections</p>
+                    <p className={`text-2xl font-black ${Object.keys(searchResult.data.detections || {}).length > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                      {Object.keys(searchResult.data.detections || {}).length}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-white/5">
+                   <div>
+                     <p className="text-[10px] uppercase text-slate-600 font-bold mb-1">First Seen</p>
+                     <p className="text-xs text-white">{searchResult.data.first_seen ? new Date(searchResult.data.first_seen).toLocaleDateString() : 'N/A'}</p>
+                   </div>
+                   <div>
+                     <p className="text-[10px] uppercase text-slate-600 font-bold mb-1">Global Hits</p>
+                     <p className="text-xs text-white">{searchResult.data.query_count || 1}</p>
+                   </div>
+                   <div className="col-span-2">
+                     <p className="text-[10px] uppercase text-slate-600 font-bold mb-1">Classification Tags</p>
+                     <div className="flex gap-2 flex-wrap">
+                       {(searchResult.data.tags || []).length > 0 ? searchResult.data.tags.map(tag => (
+                         <span key={tag} className="text-[9px] bg-white/5 px-2 py-0.5 rounded border border-white/10 uppercase font-bold text-slate-400">{tag}</span>
+                       )) : <span className="text-xs text-slate-500 italic">Unclassified</span>}
+                     </div>
+                   </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="mt-8 flex gap-8 text-[10px] uppercase tracking-widest font-bold text-slate-500">
           <span className="flex items-center gap-2"><Globe className="w-3 h-3" /> 2.4B Records</span>
