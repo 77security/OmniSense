@@ -1,6 +1,8 @@
 const express = require('express');
 const { Pool } = require('pg');
 const net = require('net');
+const cors = require('cors'); // Added for CORS fix
+const axios = require('axios'); // Added for Auth verification
 
 // --- LOGGING SETUP ---
 const logger = require('pino')({
@@ -16,6 +18,18 @@ const pinoHttp = require('pino-http')({
 
 const app = express();
 
+// --- CORS CONFIGURATION ---
+// This resolves the "CORS error" seen in the browser.
+app.use(cors({
+  origin: ['https://omnisense.77security.com', 'http://localhost:3000'], // Add your frontend domains
+  credentials: true, // Allow cookies/sessions to be passed
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
+}));
+
+app.use(pinoHttp);
+app.use(express.json());
+
 // Database connection
 const pool = new Pool({
   host: '77security.postgres.database.azure.com',
@@ -26,8 +40,32 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-app.use(pinoHttp);
-app.use(express.json());
+// --- AUTHENTICATION MIDDLEWARE ---
+// Enforces that only users logged into 77 Security can query TI data.
+const checkAuth = async (req, res, next) => {
+  const sessionCookie = req.headers.cookie;
+
+  if (!sessionCookie) {
+    return res.status(401).json({ error: "Authentication required. Please sign in." });
+  }
+
+  try {
+    // Forward the session cookie to the identity service to verify the user
+    const authCheck = await axios.get("https://identity.77security.com/api/user/me", {
+      headers: { Cookie: sessionCookie }
+    });
+
+    if (authCheck.status === 200) {
+      req.user = authCheck.data; // Attach user info to request
+      next();
+    } else {
+      res.status(401).json({ error: "Invalid session." });
+    }
+  } catch (err) {
+    logger.error({ err: err.message }, "Auth verification failed");
+    res.status(401).json({ error: "Authentication service unreachable or session expired." });
+  }
+};
 
 // --- HELPERS: Input Type Detection ---
 const isIP = (str) => net.isIP(str) !== 0;
@@ -35,7 +73,8 @@ const isHash = (str) => /^[a-fA-F0-0]{32,64}$/.test(str);
 const isDomain = (str) => /^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+$/.test(str);
 
 // --- SEARCH API ---
-app.get('/api/ti/search', async (req, res) => {
+// Added checkAuth middleware to protect the route
+app.get('/api/ti/search', checkAuth, async (req, res) => {
   const { q } = req.query;
 
   if (!q) {
@@ -47,38 +86,27 @@ app.get('/api/ti/search', async (req, res) => {
 
   try {
     if (isIP(query)) {
-      // Search in ti_ips
       const resIps = await pool.query(
-        `SELECT b.*, i.* FROM ti_ips i 
-         JOIN ti_base b ON i.id = b.id 
-         WHERE i.ip_address = $1`, [query]
+        `SELECT b.*, i.* FROM ti_ips i JOIN ti_base b ON i.id = b.id WHERE i.ip_address = $1`, [query]
       );
       if (resIps.rows.length > 0) result = { type: 'ip', data: resIps.rows[0] };
 
     } else if (isHash(query)) {
-      // Search in ti_files (MD5, SHA1, or SHA256)
       const resFiles = await pool.query(
-        `SELECT b.*, f.* FROM ti_files f 
-         JOIN ti_base b ON f.id = b.id 
+        `SELECT b.*, f.* FROM ti_files f JOIN ti_base b ON f.id = b.id 
          WHERE f.hash_sha256 = $1 OR f.hash_sha1 = $1 OR f.hash_md5 = $1`, [query]
       );
       if (resFiles.rows.length > 0) result = { type: 'file', data: resFiles.rows[0] };
 
     } else if (isDomain(query)) {
-      // Search in ti_domains
       const resDomains = await pool.query(
-        `SELECT b.*, d.* FROM ti_domains d 
-         JOIN ti_base b ON d.id = b.id 
-         WHERE d.domain_name = $1`, [query.toLowerCase()]
+        `SELECT b.*, d.* FROM ti_domains d JOIN ti_base b ON d.id = b.id WHERE d.domain_name = $1`, [query.toLowerCase()]
       );
       if (resDomains.rows.length > 0) result = { type: 'domain', data: resDomains.rows[0] };
 
     } else {
-      // Fallback: Search in ti_urls
       const resUrls = await pool.query(
-        `SELECT b.*, u.* FROM ti_urls u 
-         JOIN ti_base b ON u.id = b.id 
-         WHERE u.url_full = $1`, [query]
+        `SELECT b.*, u.* FROM ti_urls u JOIN ti_base b ON u.id = b.id WHERE u.url_full = $1`, [query]
       );
       if (resUrls.rows.length > 0) result = { type: 'url', data: resUrls.rows[0] };
     }
@@ -87,7 +115,6 @@ app.get('/api/ti/search', async (req, res) => {
       return res.status(404).json({ message: "No threat intelligence found for this indicator" });
     }
 
-    // Update query count asynchronously
     pool.query('UPDATE ti_base SET query_count = query_count + 1, last_seen = CURRENT_TIMESTAMP WHERE id = $1', [result.data.id])
         .catch(e => logger.error({ err: e, id: result.data.id }, "Failed to update query count"));
 
