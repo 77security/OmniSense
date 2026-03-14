@@ -68,6 +68,7 @@ export default function App() {
       const response = await fetch(`${SEARCH_API}?q=${encodeURIComponent(cleanQuery)}`, {
         method: 'GET',
         mode: 'cors',
+        credentials: 'include',
         headers: {
           'Accept': 'application/json',
         }
