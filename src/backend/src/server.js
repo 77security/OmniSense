@@ -21,7 +21,7 @@ const app = express();
 // --- CORS CONFIGURATION ---
 // This resolves the "CORS error" seen in the browser.
 app.use(cors({
-  origin: ['https://omnisense.77security.com', 'http://localhost:3000'], // Add your frontend domains
+  origin: ['https://omnisense.77security.com'], // Add your frontend domains
   credentials: true, // Allow cookies/sessions to be passed
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
@@ -85,6 +85,7 @@ app.get('/api/ti/search', checkAuth, async (req, res) => {
   let result = null;
 
   try {
+    // 1. Unified fetching logic based on indicator type
     if (isIP(query)) {
       const resIps = await pool.query(
         `SELECT b.*, i.* FROM ti_ips i JOIN ti_base b ON i.id = b.id WHERE i.ip_address = $1`, [query]
@@ -115,8 +116,33 @@ app.get('/api/ti/search', checkAuth, async (req, res) => {
       return res.status(404).json({ message: "No threat intelligence found for this indicator" });
     }
 
-    pool.query('UPDATE ti_base SET query_count = query_count + 1, last_seen = CURRENT_TIMESTAMP WHERE id = $1', [result.data.id])
-        .catch(e => logger.error({ err: e, id: result.data.id }, "Failed to update query count"));
+    // 2. Normalize detections to support both OLD and NEW formats
+    // Old format: { threat: "...", detected_at: "..." }
+    // New format: { URLhaus: { threat: "...", detected_at: "..." }, VirusTotal: { ... } }
+    const rawDetections = result.data.detections || {};
+    let normalizedDetections = {};
+
+    if (rawDetections.URLhaus || rawDetections.VirusTotal) {
+      // It's already in the new format
+      normalizedDetections = rawDetections;
+    } else if (rawDetections.threat) {
+      // It's the old flat format, migrate it for the UI response
+      normalizedDetections = {
+        Legacy: {
+          threat: rawDetections.threat,
+          detected_at: rawDetections.detected_at || result.data.first_seen
+        }
+      };
+    }
+
+    // Update the result object with normalized detections
+    result.data.detections = normalizedDetections;
+
+    // 3. Background update for query tracking
+    pool.query(
+      'UPDATE ti_base SET query_count = query_count + 1, last_seen = CURRENT_TIMESTAMP WHERE id = $1', 
+      [result.data.id]
+    ).catch(e => logger.error({ err: e, id: result.data.id }, "Failed to update query count"));
 
     res.json(result);
 

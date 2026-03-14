@@ -19,17 +19,26 @@ const pool = new Pool({
 async function upsertUrl(record) {
   console.log("upsertUrl: ", record.url.substring(0, 200));
 
-  const client = await pool.connect()
+  const client = await pool.connect();
 
   try {
+    await client.query("BEGIN");
 
-    await client.query("BEGIN")
+    const url = record.url;
+    const tags = record.tags ? record.tags.split(",") : [];
+    
+    /**
+     * Nesting the detection time within the specific vendor key (URLhaus).
+     * This ensures each threat source maintains its own metadata.
+     */
+    const detection = { 
+      URLhaus: {
+        threat: record.threat,
+        detected_at: new Date().toISOString()
+      }
+    };
 
-    const url = record.url
-    const tags = record.tags ? record.tags.split(",") : []
-    const detection = { URLhaus: record.threat }
-
-    let baseId
+    let baseId;
 
     // -----------------------------
     // URL ENTITY
@@ -37,11 +46,10 @@ async function upsertUrl(record) {
     const existingUrl = await client.query(
       `SELECT id FROM ti_urls WHERE url_full = $1`,
       [url]
-    )
+    );
 
     if (existingUrl.rows.length > 0) {
-
-      baseId = existingUrl.rows[0].id
+      baseId = existingUrl.rows[0].id;
 
       await client.query(
         `
@@ -52,21 +60,19 @@ async function upsertUrl(record) {
             detections = detections || $2::jsonb
         WHERE id = $3
         `,
-        [tags, detection, baseId]
-      )
-
+        [tags, JSON.stringify(detection), baseId]
+      );
     } else {
-
       const baseInsert = await client.query(
         `
         INSERT INTO ti_base (detections, tags)
-        VALUES ($1, $2)
+        VALUES ($1::jsonb, $2)
         RETURNING id
         `,
-        [detection, tags]
-      )
+        [JSON.stringify(detection), tags]
+      );
 
-      baseId = baseInsert.rows[0].id
+      baseId = baseInsert.rows[0].id;
 
       await client.query(
         `
@@ -74,59 +80,36 @@ async function upsertUrl(record) {
         VALUES ($1, $2)
         `,
         [baseId, url]
-      )
+      );
     }
 
     // -----------------------------
     // Extract domain/ip
     // -----------------------------
-    const { ip, domain } = extractEntities(url)
+    const { ip, domain } = extractEntities(url);
 
     // -----------------------------
     // DOMAIN ENTITY
     // -----------------------------
     if (domain) {
-
       const existingDomain = await client.query(
-        `
-        SELECT id FROM ti_domains
-        WHERE domain_name = $1
-        `,
+        `SELECT id FROM ti_domains WHERE domain_name = $1`,
         [domain]
-      )
+      );
 
       if (existingDomain.rows.length > 0) {
-
-        const domainBaseId = existingDomain.rows[0].id
-
+        const domainBaseId = existingDomain.rows[0].id;
         await client.query(
-          `
-          UPDATE ti_base
-          SET last_seen = NOW(),
-              query_count = query_count + 1
-          WHERE id = $1
-          `,
+          `UPDATE ti_base SET last_seen = NOW(), query_count = query_count + 1 WHERE id = $1`,
           [domainBaseId]
-        )
-
+        );
       } else {
-
-        const domainBase = await client.query(
-          `
-          INSERT INTO ti_base DEFAULT VALUES
-          RETURNING id
-          `
-        )
-
-        const domainBaseId = domainBase.rows[0].id
-
+        const domainBase = await client.query(`INSERT INTO ti_base DEFAULT VALUES RETURNING id`);
+        const domainBaseId = domainBase.rows[0].id;
         await client.query(
-          `
-          INSERT INTO ti_domains (id, domain_name)
-          VALUES ($1, $2)
-          `,
+          `INSERT INTO ti_domains (id, domain_name) VALUES ($1, $2)`,
           [domainBaseId, domain]
-        )
+        );
       }
     }
 
@@ -134,61 +117,34 @@ async function upsertUrl(record) {
     // IP ENTITY
     // -----------------------------
     if (ip) {
-
       const existingIp = await client.query(
-        `
-        SELECT id FROM ti_ips
-        WHERE ip_address = $1
-        `,
+        `SELECT id FROM ti_ips WHERE ip_address = $1`,
         [ip]
-      )
+      );
 
       if (existingIp.rows.length > 0) {
-
-        const ipBaseId = existingIp.rows[0].id
-
+        const ipBaseId = existingIp.rows[0].id;
         await client.query(
-          `
-          UPDATE ti_base
-          SET last_seen = NOW(),
-              query_count = query_count + 1
-          WHERE id = $1
-          `,
+          `UPDATE ti_base SET last_seen = NOW(), query_count = query_count + 1 WHERE id = $1`,
           [ipBaseId]
-        )
-
+        );
       } else {
-
-        const ipBase = await client.query(
-          `
-          INSERT INTO ti_base DEFAULT VALUES
-          RETURNING id
-          `
-        )
-
-        const ipBaseId = ipBase.rows[0].id
-
+        const ipBase = await client.query(`INSERT INTO ti_base DEFAULT VALUES RETURNING id`);
+        const ipBaseId = ipBase.rows[0].id;
         await client.query(
-          `
-          INSERT INTO ti_ips (id, ip_address)
-          VALUES ($1, $2)
-          `,
+          `INSERT INTO ti_ips (id, ip_address) VALUES ($1, $2)`,
           [ipBaseId, ip]
-        )
+        );
       }
     }
 
-    await client.query("COMMIT")
+    await client.query("COMMIT");
 
   } catch (err) {
-
-    await client.query("ROLLBACK")
-    throw err
-
+    await client.query("ROLLBACK");
+    throw err;
   } finally {
-
-    client.release()
-
+    client.release();
   }
 }
 
