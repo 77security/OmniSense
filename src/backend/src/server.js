@@ -18,7 +18,11 @@ const app = express();
 
 // Database connection
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  host: '77security.postgres.database.azure.com',
+  user: 'postgresql',
+  password: process.env.DATABASE_PASS,
+  database: 'omnisense',
+  port: 5432,
   ssl: { rejectUnauthorized: false }
 });
 
